@@ -17,8 +17,8 @@ type Params struct {
 }
 
 type Response struct {
-	Version  resource.Version        `json:"version"`
-	Metadata []resource.MetadataPair `json:"metadata"`
+	Version  resource.Version         `json:"version"`
+	Metadata []resource.MetadataField `json:"metadata"`
 }
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 
 	response := Response{
 		resource.Version{},
-		[]resource.MetadataPair{},
+		[]resource.MetadataField{},
 	}
 
 	json.NewEncoder(os.Stdout).Encode(response)
