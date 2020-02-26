@@ -1,0 +1,1 @@
+# concourse-github-pr-comment-hook-resource
