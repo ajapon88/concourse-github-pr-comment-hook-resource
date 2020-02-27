@@ -22,18 +22,20 @@ type Request struct {
 }
 
 type Response struct {
-	Version  resource.Version `json:"version"`
-	Metadata Metadata         `json:"metadata"`
+	Version  resource.Version  `json:"version"`
+	Metadata resource.Metadata `json:"metadata"`
 }
 
 type Params struct {
 	Depth int `json:"depth"`
 }
 
-type Metadata []*resource.MetadataField
-
 func main() {
 	var request Request
+
+	infoEncoder := json.NewEncoder(os.Stderr)
+	infoEncoder.SetIndent("", "    ")
+
 	decoder := json.NewDecoder(os.Stdin)
 	err := decoder.Decode(&request)
 	if err != nil {
@@ -43,9 +45,12 @@ func main() {
 	}
 
 	dest := os.Args[1]
-	fmt.Fprintf(os.Stderr, "version: %v\n", request.Version)
-	fmt.Fprintf(os.Stderr, "source: %v\n", request.Source)
-	fmt.Fprintf(os.Stderr, "params: %v\n", request.Params)
+	fmt.Fprintf(os.Stderr, "version:\n")
+	infoEncoder.Encode(request.Version)
+	fmt.Fprintf(os.Stderr, "source:\n")
+	infoEncoder.Encode(request.Source)
+	fmt.Fprintf(os.Stderr, "params:\n")
+	infoEncoder.Encode(request.Params)
 
 	// 出力を全て標準エラーに出力する
 	stdout := os.Stdout
@@ -133,7 +138,7 @@ func main() {
 	}
 
 	// export metadata
-	metadata := Metadata{
+	metadata := resource.Metadata{
 		&resource.MetadataField{Name: "pr", Value: strconv.Itoa(pull.GetNumber())},
 		&resource.MetadataField{Name: "url", Value: pull.GetHTMLURL()},
 		&resource.MetadataField{Name: "head_name", Value: pull.GetHead().GetRef()},
@@ -143,29 +148,28 @@ func main() {
 		&resource.MetadataField{Name: "comment", Value: request.Version.Comment},
 	}
 
-	metaDir := filepath.Join(dest, ".git", "resource")
+	resourceDir := filepath.Join(dest, ".git", "resource")
 
-	if f, err := os.Stat(metaDir); os.IsNotExist(err) || !f.IsDir() {
-		err = os.Mkdir(metaDir, 0777)
+	if f, err := os.Stat(resourceDir); os.IsNotExist(err) || !f.IsDir() {
+		err = os.Mkdir(resourceDir, 0777)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to create metadata directory: %s\n", err.Error())
 			os.Exit(1)
 			return
 		}
 	}
-	versionJSON, err := json.Marshal(request.Version)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to marshal version json: %s\n", err.Error())
+	if err = saveJSON(filepath.Join(resourceDir, "version.json"), request.Version); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to save version file: %s\n", err.Error())
 		os.Exit(1)
 		return
 	}
-	if err := ioutil.WriteFile(filepath.Join(metaDir, "version.json"), []byte(versionJSON), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write version file: %s\n", err.Error())
+	if err = saveJSON(filepath.Join(resourceDir, "metadata.json"), metadata); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to save metadata file: %s\n", err.Error())
 		os.Exit(1)
 		return
 	}
 	for _, meta := range metadata {
-		if err := ioutil.WriteFile(filepath.Join(metaDir, meta.Name), []byte(meta.Value), 0644); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(resourceDir, meta.Name), []byte(meta.Value), 0644); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to write metadata file: %s\n", err.Error())
 			os.Exit(1)
 			return
@@ -178,4 +182,15 @@ func main() {
 		Metadata: metadata,
 	}
 	json.NewEncoder(os.Stdout).Encode(response)
+}
+
+func saveJSON(path string, v interface{}) error {
+	bin, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Errorf("failed to marshal json: %s", err.Error())
+	}
+	if err := ioutil.WriteFile(path, []byte(bin), 0644); err != nil {
+		return fmt.Errorf("failed to write json file: %s", err.Error())
+	}
+	return nil
 }

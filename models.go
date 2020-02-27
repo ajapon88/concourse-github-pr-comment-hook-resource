@@ -13,16 +13,19 @@ type Source struct {
 }
 
 type Version struct {
-	PR        string    `json:"pr"`
-	CommentID string    `json:"comment_id"`
-	Comment   string    `json:"comment"`
-	CreatedAt time.Time `json:"created_date"`
+	PR          string    `json:"pr"`
+	Commit      string    `json:"commit"`
+	CommentID   string    `json:"comment_id"`
+	Comment     string    `json:"comment"`
+	CommentedAt time.Time `json:"commented_at"`
 }
 
 type MetadataField struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
+
+type Metadata []*MetadataField
 
 func (source *Source) GetOwnerRepo() (string, string, error) {
 	slice := strings.Split(source.Repository, "/")

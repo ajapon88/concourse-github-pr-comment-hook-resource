@@ -32,6 +32,10 @@ func (r Response) Swap(i, j int) {
 
 func main() {
 	var request Request
+
+	infoEncoder := json.NewEncoder(os.Stderr)
+	infoEncoder.SetIndent("", "    ")
+
 	decoder := json.NewDecoder(os.Stdin)
 	err := decoder.Decode(&request)
 	if err != nil {
@@ -40,7 +44,8 @@ func main() {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "source: %v\n", request.Source)
+	fmt.Fprintf(os.Stderr, "source:")
+	infoEncoder.Encode(request.Source)
 
 	if request.Source.TriggerPhrase == "" {
 		fmt.Fprintf(os.Stderr, "trigger phrase must be set\n")
@@ -76,7 +81,7 @@ func main() {
 		lastCommentID = 0
 	}
 	for _, pullRequest := range pullRequests {
-		// fmt.Fprintf(os.Stderr, "--\n%+v\n", pullRequest)
+		infoEncoder.Encode(pullRequest)
 		comments, err := client.GetListIssueComments(pullRequest.GetNumber())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get comments: %s\n", err.Error())
@@ -88,21 +93,20 @@ func main() {
 				continue
 			}
 			if triggerPhrase.MatchString(comment.GetBody()) {
-				//fmt.Fprintf(os.Stderr, "trigger:\n        PR: %d\n        ID: %d\n      Body: %s\n CreatedAt: %s\n", pullRequest.GetNumber(), comment.GetID(), comment.GetBody(), comment.GetCreatedAt())
+				infoEncoder.Encode(comment)
 				version := resource.Version{
-					PR:        strconv.Itoa(pullRequest.GetNumber()),
-					CommentID: strconv.FormatInt(comment.GetID(), 10),
-					Comment:   comment.GetBody(),
-					CreatedAt: comment.GetCreatedAt(),
+					PR:          strconv.Itoa(pullRequest.GetNumber()),
+					Commit:      pullRequest.GetHead().GetSHA(),
+					CommentID:   strconv.FormatInt(comment.GetID(), 10),
+					Comment:     comment.GetBody(),
+					CommentedAt: comment.GetCreatedAt(),
 				}
 				response = append(response, version)
 			}
 		}
 	}
 	sort.Sort(response)
-	enc := json.NewEncoder(os.Stderr)
-	enc.SetIndent("", "    ")
-	enc.Encode(response)
+	infoEncoder.Encode(response)
 
 	// チェックするコメントがなければversionをそのまま返す
 	if len(response) == 0 && request.Version.CommentID != "" {

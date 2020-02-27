@@ -2,6 +2,9 @@ package resource
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"strings"
 
 	"github.com/google/go-github/v29/github"
 	"golang.org/x/oauth2"
@@ -97,4 +100,39 @@ func (client *GithubClient) GetListPullRequestCommits(number int) ([]*github.Rep
 	}
 
 	return commits, nil
+}
+
+func (client *GithubClient) UpdateCommitStatus(ref string, status string, targetURL string, description string, baseContext string, statusContext string) (*github.RepoStatus, error) {
+	if baseContext == "" {
+		baseContext = "concourse-ci"
+	}
+
+	if statusContext == "" {
+		statusContext = "status"
+	}
+
+	if targetURL == "" {
+		targetURL = strings.Join([]string{os.Getenv("ATC_EXTERNAL_URL"), "builds", os.Getenv("BUILD_ID")}, "/")
+	}
+
+	if description == "" {
+		description = fmt.Sprintf("Concourse CI build %s", status)
+	}
+
+	repoStatus, _, err := client.Client.Repositories.CreateStatus(context.TODO(),
+		client.Owner,
+		client.Repo,
+		ref,
+		&github.RepoStatus{
+			State:       github.String(strings.ToLower(status)),
+			TargetURL:   github.String(targetURL),
+			Description: github.String(description),
+			Context:     github.String(fmt.Sprintf("%s/%s", baseContext, statusContext)),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return repoStatus, nil
 }
