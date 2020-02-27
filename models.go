@@ -15,6 +15,7 @@ type Source struct {
 type Version struct {
 	PR        string    `json:"pr"`
 	CommentID string    `json:"comment_id"`
+	Comment   string    `json:"comment"`
 	CreatedAt time.Time `json:"created_date"`
 }
 

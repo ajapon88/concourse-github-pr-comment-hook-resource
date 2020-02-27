@@ -92,6 +92,7 @@ func main() {
 				version := resource.Version{
 					PR:        strconv.Itoa(pullRequest.GetNumber()),
 					CommentID: strconv.FormatInt(comment.GetID(), 10),
+					Comment:   comment.GetBody(),
 					CreatedAt: comment.GetCreatedAt(),
 				}
 				response = append(response, version)
