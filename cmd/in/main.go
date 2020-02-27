@@ -119,7 +119,7 @@ func main() {
 	// change current branch
 	headBranch := fmt.Sprintf("refs/heads/%s", pull.GetHead().GetRef())
 	refName := plumbing.ReferenceName(headBranch)
-	ref := plumbing.NewHashReference(refName, plumbing.NewHash(pull.GetHead().GetSHA()))
+	ref := plumbing.NewHashReference(refName, plumbing.NewHash(request.Version.Commit))
 	fmt.Fprintf(os.Stderr, "git change branch %s\n", ref)
 	err = repository.Storer.SetReference(ref)
 	if err != nil {
@@ -142,7 +142,7 @@ func main() {
 		&resource.MetadataField{Name: "pr", Value: strconv.Itoa(pull.GetNumber())},
 		&resource.MetadataField{Name: "url", Value: pull.GetHTMLURL()},
 		&resource.MetadataField{Name: "head_name", Value: pull.GetHead().GetRef()},
-		&resource.MetadataField{Name: "head_sha", Value: pull.GetHead().GetSHA()},
+		&resource.MetadataField{Name: "head_sha", Value: request.Version.Commit},
 		&resource.MetadataField{Name: "base_name", Value: pull.GetBase().GetRef()},
 		&resource.MetadataField{Name: "base_sha", Value: pull.GetBase().GetSHA()},
 		&resource.MetadataField{Name: "comment", Value: request.Version.Comment},
