@@ -56,6 +56,12 @@ func main() {
 	stdout := os.Stdout
 	os.Stdout = os.Stderr
 
+	if err := request.Source.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to validate source: %s\n", err.Error())
+		os.Exit(1)
+		return
+	}
+
 	client, err := resource.CreateGithubClient(&request.Source)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create github client: %s\n", err.Error())

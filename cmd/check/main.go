@@ -47,12 +47,17 @@ func main() {
 	fmt.Fprintf(os.Stderr, "source:")
 	infoEncoder.Encode(request.Source)
 
-	if request.Source.TriggerPhrase == "" {
-		fmt.Fprintf(os.Stderr, "trigger phrase must be set\n")
+	if err := request.Source.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to validate source: %s\n", err.Error())
 		os.Exit(1)
 		return
 	}
+
 	triggerPhrase := regexp.MustCompile(request.Source.TriggerPhrase)
+	allowUsers := make(map[string]struct{}, len(request.Source.AllowUsers))
+	for _, user := range request.Source.AllowUsers {
+		allowUsers[user] = struct{}{}
+	}
 
 	response := Response{}
 
@@ -81,7 +86,7 @@ func main() {
 		lastCommentID = 0
 	}
 	for _, pullRequest := range pullRequests {
-		infoEncoder.Encode(pullRequest)
+		// infoEncoder.Encode(pullRequest)
 		comments, err := client.GetListIssueComments(pullRequest.GetNumber())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get comments: %s\n", err.Error())
@@ -92,8 +97,13 @@ func main() {
 			if comment.GetID() <= lastCommentID {
 				continue
 			}
+			commentUser := comment.GetUser().GetLogin()
+			// fmt.Fprintf(os.Stderr, "CommentUser '%s'\n", commentUser)
+			if _, ok := allowUsers[commentUser]; !ok {
+				continue
+			}
 			if triggerPhrase.MatchString(comment.GetBody()) {
-				infoEncoder.Encode(comment)
+				// infoEncoder.Encode(comment)
 				version := resource.Version{
 					PR:          strconv.Itoa(pullRequest.GetNumber()),
 					Commit:      pullRequest.GetHead().GetSHA(),
@@ -101,12 +111,13 @@ func main() {
 					Comment:     comment.GetBody(),
 					CommentedAt: comment.GetCreatedAt(),
 				}
+				fmt.Fprintf(os.Stderr, "Version:\n")
+				infoEncoder.Encode(version)
 				response = append(response, version)
 			}
 		}
 	}
 	sort.Sort(response)
-	infoEncoder.Encode(response)
 
 	// チェックするコメントがなければversionをそのまま返す
 	if len(response) == 0 && request.Version.CommentID != "" {

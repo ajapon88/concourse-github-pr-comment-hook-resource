@@ -2,14 +2,16 @@ package resource
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
 
 type Source struct {
-	AccessToken   string `json:"access_token"`
-	Repository    string `json:"repository"`
-	TriggerPhrase string `json:"trigger_phrase"`
+	AccessToken   string   `json:"access_token"`
+	Repository    string   `json:"repository"`
+	TriggerPhrase string   `json:"trigger_phrase"`
+	AllowUsers    []string `json:"allow_users"`
 }
 
 type Version struct {
@@ -26,6 +28,22 @@ type MetadataField struct {
 }
 
 type Metadata []*MetadataField
+
+func (source *Source) Validate() error {
+	if source.AccessToken == "" {
+		return fmt.Errorf("access_token must be set")
+	}
+	if source.Repository == "" {
+		return fmt.Errorf("repository must be set")
+	}
+	if source.TriggerPhrase == "" {
+		return fmt.Errorf("trigger_phrase must be set")
+	}
+	if len(source.AllowUsers) == 0 {
+		return fmt.Errorf("allow_users must be set")
+	}
+	return nil
+}
 
 func (source *Source) GetOwnerRepo() (string, string, error) {
 	slice := strings.Split(source.Repository, "/")

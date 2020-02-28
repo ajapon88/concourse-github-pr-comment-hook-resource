@@ -50,7 +50,13 @@ func main() {
 	fmt.Fprintf(os.Stderr, "params:\n")
 	infoEncoder.Encode(request.Params)
 
-	if err := validateParams(&request.Params); err != nil {
+	if err := request.Source.Validate(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to validate source: %s\n", err.Error())
+		os.Exit(1)
+		return
+	}
+
+	if err := request.Params.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		os.Exit(1)
 		return
@@ -98,7 +104,7 @@ func main() {
 	json.NewEncoder(os.Stdout).Encode(response)
 }
 
-func validateParams(params *Params) error {
+func (params *Params) Validate() error {
 	// check status
 	allow := false
 	for _, status := range []string{"error", "failure", "pending", "success"} {
