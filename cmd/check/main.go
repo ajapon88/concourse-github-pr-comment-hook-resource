@@ -63,9 +63,9 @@ func main() {
 		return
 	}
 	for _, team := range request.Source.AllowTeams {
-		users, err := client.GetTeamMembers(team.Org, team.Slug)
+		users, err := client.GetTeamMembers(team.Organization, team.Slug)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get team %s/%s: %s\n", team.Org, team.Slug, err.Error())
+			fmt.Fprintf(os.Stderr, "failed to get team %s/%s: %s\n", team.Organization, team.Slug, err.Error())
 			os.Exit(1)
 			return
 		}

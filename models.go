@@ -13,8 +13,8 @@ type Source struct {
 	TriggerPhrase string   `json:"trigger_phrase"`
 	AllowUsers    []string `json:"allow_users"`
 	AllowTeams    []struct {
-		Org  string `json:"org"`
-		Slug string `json:"slug"`
+		Organization string `json:"organization"`
+		Slug         string `json:"slug"`
 	} `json:"allow_teams"`
 }
 
