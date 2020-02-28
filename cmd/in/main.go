@@ -45,12 +45,6 @@ func main() {
 	}
 
 	dest := os.Args[1]
-	fmt.Fprintf(os.Stderr, "version:\n")
-	infoEncoder.Encode(request.Version)
-	fmt.Fprintf(os.Stderr, "source:\n")
-	infoEncoder.Encode(request.Source)
-	fmt.Fprintf(os.Stderr, "params:\n")
-	infoEncoder.Encode(request.Params)
 
 	// 出力を全て標準エラーに出力する
 	stdout := os.Stdout

@@ -44,9 +44,6 @@ func main() {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "source:")
-	infoEncoder.Encode(request.Source)
-
 	if err := request.Source.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to validate source: %s\n", err.Error())
 		os.Exit(1)

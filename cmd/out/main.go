@@ -44,11 +44,6 @@ func main() {
 	}
 
 	src := os.Args[1]
-	fmt.Fprintf(os.Stderr, "src: %s\n", src)
-	fmt.Fprintf(os.Stderr, "source:\n")
-	infoEncoder.Encode(request.Source)
-	fmt.Fprintf(os.Stderr, "params:\n")
-	infoEncoder.Encode(request.Params)
 
 	if err := request.Source.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to validate source: %s\n", err.Error())
