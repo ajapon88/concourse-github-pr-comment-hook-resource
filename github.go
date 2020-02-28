@@ -136,3 +136,27 @@ func (client *GithubClient) UpdateCommitStatus(ref string, status string, target
 
 	return repoStatus, nil
 }
+
+func (client *GithubClient) GetTeamMembers(org string, slug string) ([]*github.User, error) {
+	team, _, err := client.Client.Teams.GetTeamBySlug(context.TODO(), org, slug)
+	if err != nil {
+		return nil, err
+	}
+
+	var members []*github.User
+	opts := &github.TeamListTeamMembersOptions{}
+
+	for {
+		membs, resp, err := client.Client.Teams.ListTeamMembers(context.TODO(), team.GetID(), opts)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, membs...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	return members, nil
+}

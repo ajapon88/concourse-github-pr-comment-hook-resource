@@ -12,6 +12,10 @@ type Source struct {
 	Repository    string   `json:"repository"`
 	TriggerPhrase string   `json:"trigger_phrase"`
 	AllowUsers    []string `json:"allow_users"`
+	AllowTeams    []struct {
+		Org  string `json:"org"`
+		Slug string `json:"slug"`
+	} `json:"allow_teams"`
 }
 
 type Version struct {
@@ -39,8 +43,8 @@ func (source *Source) Validate() error {
 	if source.TriggerPhrase == "" {
 		return fmt.Errorf("trigger_phrase must be set")
 	}
-	if len(source.AllowUsers) == 0 {
-		return fmt.Errorf("allow_users must be set")
+	if len(source.AllowUsers) == 0 && len(source.AllowTeams) == 0 {
+		return fmt.Errorf("allow_users or allow_teams must be set")
 	}
 	return nil
 }

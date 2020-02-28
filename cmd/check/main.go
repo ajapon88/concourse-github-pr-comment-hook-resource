@@ -56,14 +56,26 @@ func main() {
 		allowUsers[user] = struct{}{}
 	}
 
-	response := Response{}
-
 	client, err := resource.CreateGithubClient(&request.Source)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create github client: %s\n", err.Error())
 		os.Exit(1)
 		return
 	}
+	for _, team := range request.Source.AllowTeams {
+		users, err := client.GetTeamMembers(team.Org, team.Slug)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get team %s/%s: %s\n", team.Org, team.Slug, err.Error())
+			os.Exit(1)
+			return
+		}
+		for _, user := range users {
+			name := user.GetLogin()
+			allowUsers[name] = struct{}{}
+		}
+	}
+
+	response := Response{}
 
 	pullRequests, err := client.GetListPullRequests()
 	if err != nil {
