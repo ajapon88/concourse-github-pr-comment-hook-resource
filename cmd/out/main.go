@@ -16,12 +16,13 @@ type Request struct {
 }
 
 type Params struct {
-	Path        string `json:"path"`
-	BaseContext string `json:"base_context"`
-	Context     string `json:"context"`
-	TargetURL   string `json:"target_url"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
+	Path            string `json:"path"`
+	BaseContext     string `json:"base_context"`
+	Context         string `json:"context"`
+	TargetURL       string `json:"target_url"`
+	Description     string `json:"description"`
+	DescriptionFile string `json:"description_file"`
+	Status          string `json:"status"`
 }
 
 type Response struct {
@@ -82,7 +83,13 @@ func main() {
 		os.Exit(1)
 		return
 	}
-	repoStatus, err := client.UpdateCommitStatus(version.Commit, request.Params.Status, request.Params.TargetURL, request.Params.Description, request.Params.BaseContext, request.Params.Context)
+	description, err := request.Params.GetDescription(src)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, err.Error())
+		os.Exit(1)
+		return
+	}
+	repoStatus, err := client.UpdateCommitStatus(version.Commit, request.Params.Status, request.Params.TargetURL, description, request.Params.BaseContext, request.Params.Context)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to update commit status: %s\n", err.Error())
 		os.Exit(1)
@@ -112,6 +119,18 @@ func (params *Params) Validate() error {
 		return fmt.Errorf("invalid status")
 	}
 	return nil
+}
+
+func (params *Params) GetDescription(src string) (string, error) {
+	if params.DescriptionFile != "" {
+		description, err := ioutil.ReadFile(filepath.Join(src, params.DescriptionFile))
+		if err != nil {
+			return "", fmt.Errorf("failed to read description file '%s' : %s", params.DescriptionFile, err.Error())
+		}
+		return string(description), nil
+	}
+
+	return params.Description, nil
 }
 
 func loadJSON(path string, v interface{}) error {
