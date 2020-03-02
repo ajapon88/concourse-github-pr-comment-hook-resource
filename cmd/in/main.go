@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/ajapon88/concourse-github-pr-comment-hook-resource"
+	"github.com/google/go-github/v29/github"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -27,7 +28,8 @@ type Response struct {
 }
 
 type Params struct {
-	Depth int `json:"depth"`
+	SkipDownload bool `json:"skip_download"`
+	Depth        int  `json:"depth"`
 }
 
 func main() {
@@ -63,12 +65,6 @@ func main() {
 		return
 	}
 
-	// TODO: ssh
-	auth := http.BasicAuth{
-		Username: "x-oauth-basic",
-		Password: request.Source.AccessToken,
-	}
-
 	prNumber, err := request.Version.GetPR()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -77,64 +73,14 @@ func main() {
 	}
 	pull, err := client.GetPullRequest(prNumber)
 
-	repository, err := git.PlainOpen(dest)
-	if err != nil {
-		gitURL := pull.GetHead().GetRepo().GetSVNURL()
-		fmt.Fprintf(os.Stderr, "git clone %s\n", gitURL)
-		repository, err = git.PlainClone(dest, false, &git.CloneOptions{
-			URL:          gitURL,
-			Auth:         &auth,
-			SingleBranch: true,
-			Depth:        request.Params.Depth,
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to clone repository: %s\n", err.Error())
+	if !request.Params.SkipDownload {
+		if err := gitDownload(dest, &request, pull); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 			return
 		}
-	}
-
-	worktree, err := repository.Worktree()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get worktree: %s\n", err.Error())
-		os.Exit(1)
-		return
-	}
-
-	// fetch
-	fmt.Fprintf(os.Stderr, "git fetch\n")
-	err = repository.Fetch(&git.FetchOptions{
-		RefSpecs: []config.RefSpec{
-			config.RefSpec("+refs/pull/*:refs/remotes/origin/pr/*"),
-		},
-		Depth: request.Params.Depth,
-		Auth:  &auth,
-		Tags:  git.AllTags,
-	})
-	if err != nil && err.Error() != "already up-to-date" {
-		fmt.Fprintf(os.Stderr, "failed to fetch: %s\n", err.Error())
-		os.Exit(1)
-		return
-	}
-	// change current branch
-	headBranch := fmt.Sprintf("refs/heads/%s", pull.GetHead().GetRef())
-	refName := plumbing.ReferenceName(headBranch)
-	ref := plumbing.NewHashReference(refName, plumbing.NewHash(request.Version.Commit))
-	fmt.Fprintf(os.Stderr, "git change branch %s\n", ref)
-	err = repository.Storer.SetReference(ref)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create branch: %s\n", err.Error())
-		os.Exit(1)
-		return
-	}
-	err = worktree.Checkout(&git.CheckoutOptions{
-		Branch: refName,
-		Force:  true,
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to checkout: %s\n", err.Error())
-		os.Exit(1)
-		return
+	} else {
+		fmt.Fprintln(os.Stderr, "skip download")
 	}
 
 	// export metadata
@@ -151,9 +97,9 @@ func main() {
 	resourceDir := filepath.Join(dest, ".git", "resource")
 
 	if f, err := os.Stat(resourceDir); os.IsNotExist(err) || !f.IsDir() {
-		err = os.Mkdir(resourceDir, 0777)
+		err = os.MkdirAll(resourceDir, 0777)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create metadata directory: %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "failed to create resource directory: %s\n", err.Error())
 			os.Exit(1)
 			return
 		}
@@ -191,6 +137,64 @@ func saveJSON(path string, v interface{}) error {
 	}
 	if err := ioutil.WriteFile(path, []byte(bin), 0644); err != nil {
 		return fmt.Errorf("failed to write json file: %s", err.Error())
+	}
+	return nil
+}
+
+func gitDownload(dest string, request *Request, pull *github.PullRequest) error {
+	// TODO: ssh
+	auth := http.BasicAuth{
+		Username: "x-oauth-basic",
+		Password: request.Source.AccessToken,
+	}
+	repository, err := git.PlainOpen(dest)
+	if err != nil {
+		gitURL := pull.GetHead().GetRepo().GetSVNURL()
+		fmt.Fprintf(os.Stderr, "git clone %s\n", gitURL)
+		repository, err = git.PlainClone(dest, false, &git.CloneOptions{
+			URL:          gitURL,
+			Auth:         &auth,
+			SingleBranch: true,
+			Depth:        request.Params.Depth,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to clone repository: %s", err.Error())
+		}
+	}
+
+	worktree, err := repository.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %s", err.Error())
+	}
+
+	// fetch
+	fmt.Fprintf(os.Stderr, "git fetch\n")
+	err = repository.Fetch(&git.FetchOptions{
+		RefSpecs: []config.RefSpec{
+			config.RefSpec("+refs/pull/*:refs/remotes/origin/pr/*"),
+		},
+		Depth: request.Params.Depth,
+		Auth:  &auth,
+		Tags:  git.AllTags,
+	})
+	if err != nil && err.Error() != "already up-to-date" {
+		return fmt.Errorf("failed to fetch: %s", err.Error())
+	}
+	// change current branch
+	headBranch := fmt.Sprintf("refs/heads/%s", pull.GetHead().GetRef())
+	refName := plumbing.ReferenceName(headBranch)
+	ref := plumbing.NewHashReference(refName, plumbing.NewHash(request.Version.Commit))
+	fmt.Fprintf(os.Stderr, "git change branch %s\n", ref)
+	err = repository.Storer.SetReference(ref)
+	if err != nil {
+		return fmt.Errorf("failed to create branch: %s", err.Error())
+	}
+	err = worktree.Checkout(&git.CheckoutOptions{
+		Branch: refName,
+		Force:  true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to checkout: %s", err.Error())
 	}
 	return nil
 }
