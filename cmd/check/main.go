@@ -85,9 +85,10 @@ func main() {
 	}
 	var lastCommentID int64
 	if request.Version.CommentID != "" {
-		lastCommentID, err = strconv.ParseInt(request.Version.CommentID, 10, 64)
+
+		lastCommentID, err = request.Version.GetCommentID()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to atoi CommentID: %s\n", err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 			return
 		}

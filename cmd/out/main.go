@@ -22,6 +22,8 @@ type Params struct {
 	TargetURL       string `json:"target_url"`
 	Description     string `json:"description"`
 	DescriptionFile string `json:"description_file"`
+	Comment         string `json:"comment"`
+	CommentFile     string `json:"comment_file"`
 	Status          string `json:"status"`
 }
 
@@ -53,7 +55,7 @@ func main() {
 	}
 
 	if err := request.Params.Validate(); err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 		return
 	}
@@ -62,7 +64,7 @@ func main() {
 
 	var version resource.Version
 	if err := loadJSON(filepath.Join(resourceDir, "version.json"), &version); err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 		return
 	}
@@ -70,25 +72,40 @@ func main() {
 	infoEncoder.Encode(version)
 	var metadata resource.Metadata
 	if err := loadJSON(filepath.Join(resourceDir, "metadata.json"), &metadata); err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 		return
 	}
 	fmt.Fprintf(os.Stderr, "metadata:\n")
 	infoEncoder.Encode(metadata)
 
+	prNumber, err := version.GetPR()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+		return
+	}
+
+	description, err := request.Params.GetDescription(src)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+		return
+	}
+	comment, err := request.Params.GetComment(src)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+		return
+	}
 	client, err := resource.CreateGithubClient(&request.Source)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create github client: %s\n", err.Error())
 		os.Exit(1)
 		return
 	}
-	description, err := request.Params.GetDescription(src)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, err.Error())
-		os.Exit(1)
-		return
-	}
+
+	fmt.Fprintf(os.Stderr, "update commit status: '%s'\n", request.Params.Status)
 	repoStatus, err := client.UpdateCommitStatus(version.Commit, request.Params.Status, request.Params.TargetURL, description, request.Params.BaseContext, request.Params.Context)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to update commit status: %s\n", err.Error())
@@ -97,6 +114,18 @@ func main() {
 	}
 	fmt.Fprintf(os.Stderr, "RepoStatus:\n")
 	infoEncoder.Encode(repoStatus)
+
+	if comment != "" {
+		fmt.Fprintf(os.Stderr, "post comment: \"%s\"\n", comment)
+		issueComment, err := client.PostComment(prNumber, comment)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to post comment: %s\n", err.Error())
+			os.Exit(1)
+			return
+		}
+		fmt.Fprintf(os.Stderr, "IssueComment:\n")
+		infoEncoder.Encode(issueComment)
+	}
 
 	response := Response{
 		version,
@@ -131,6 +160,18 @@ func (params *Params) GetDescription(src string) (string, error) {
 	}
 
 	return params.Description, nil
+}
+
+func (params *Params) GetComment(src string) (string, error) {
+	if params.CommentFile != "" {
+		comment, err := ioutil.ReadFile(filepath.Join(src, params.CommentFile))
+		if err != nil {
+			return "", fmt.Errorf("failed to read comment file '%s' : %s", params.CommentFile, err.Error())
+		}
+		return string(comment), nil
+	}
+
+	return params.Comment, nil
 }
 
 func loadJSON(path string, v interface{}) error {

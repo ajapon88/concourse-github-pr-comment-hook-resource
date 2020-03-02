@@ -3,6 +3,7 @@ package resource
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -55,4 +56,20 @@ func (source *Source) GetOwnerRepo() (string, string, error) {
 		return "", "", errors.New("invalid repository format")
 	}
 	return slice[0], slice[1], nil
+}
+
+func (version *Version) GetPR() (int, error) {
+	number, err := strconv.Atoi(version.PR)
+	if err != nil {
+		return 0, fmt.Errorf("failed to atoi pr number '%s': %s", version.PR, err.Error())
+	}
+	return number, nil
+}
+
+func (version *Version) GetCommentID() (int64, error) {
+	id, err := strconv.ParseInt(version.CommentID, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse CommentID '%s': %s", version.CommentID, err.Error())
+	}
+	return id, nil
 }

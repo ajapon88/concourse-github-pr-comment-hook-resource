@@ -137,6 +137,22 @@ func (client *GithubClient) UpdateCommitStatus(ref string, status string, target
 	return repoStatus, nil
 }
 
+func (client *GithubClient) PostComment(number int, comment string) (*github.IssueComment, error) {
+	issueComment, _, err := client.Client.Issues.CreateComment(context.TODO(),
+		client.Owner,
+		client.Repo,
+		number,
+		&github.IssueComment{
+			Body: &comment,
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return issueComment, nil
+}
+
 func (client *GithubClient) GetTeamMembers(org string, slug string) ([]*github.User, error) {
 	team, _, err := client.Client.Teams.GetTeamBySlug(context.TODO(), org, slug)
 	if err != nil {

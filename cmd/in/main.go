@@ -69,9 +69,9 @@ func main() {
 		Password: request.Source.AccessToken,
 	}
 
-	prNumber, err := strconv.Atoi(request.Version.PR)
+	prNumber, err := request.Version.GetPR()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to atoi pr number: %s\n", err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 		return
 	}
