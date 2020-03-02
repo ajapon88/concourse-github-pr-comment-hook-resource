@@ -14,6 +14,7 @@ type Source struct {
 	TriggerPhrase string   `json:"trigger_phrase"`
 	AllowUsers    []string `json:"allow_users"`
 	AllowTeams    []Team   `json:"allow_teams"`
+	AllowAllUsers bool     `json:"allow_all_users"`
 	IgnoreUsers   []string `json:"ignore_users"`
 	IgnoreTeams   []Team   `json:"ignore_teams"`
 }
@@ -48,7 +49,7 @@ func (source *Source) Validate() error {
 	if source.TriggerPhrase == "" {
 		return fmt.Errorf("trigger_phrase must be set")
 	}
-	if len(source.AllowUsers) == 0 && len(source.AllowTeams) == 0 {
+	if !source.AllowAllUsers && len(source.AllowUsers) == 0 && len(source.AllowTeams) == 0 {
 		return fmt.Errorf("allow_users or allow_teams must be set")
 	}
 	return nil

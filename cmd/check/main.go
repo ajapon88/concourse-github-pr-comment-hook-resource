@@ -81,7 +81,6 @@ func main() {
 	}
 	var lastCommentID int64
 	if request.Version.CommentID != "" {
-
 		lastCommentID, err = request.Version.GetCommentID()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
@@ -105,8 +104,10 @@ func main() {
 			}
 			commentUser := comment.GetUser().GetLogin()
 			// fmt.Fprintf(os.Stderr, "CommentUser '%s'\n", commentUser)
-			if _, ok := allowUsers[commentUser]; !ok {
-				continue
+			if !request.Source.AllowAllUsers {
+				if _, ok := allowUsers[commentUser]; !ok {
+					continue
+				}
 			}
 			if _, ok := ignoreUsers[commentUser]; ok {
 				continue
