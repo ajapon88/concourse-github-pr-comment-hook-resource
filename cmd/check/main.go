@@ -51,10 +51,6 @@ func main() {
 	}
 
 	triggerPhrase := regexp.MustCompile(request.Source.TriggerPhrase)
-	allowUsers := make(map[string]struct{}, len(request.Source.AllowUsers))
-	for _, user := range request.Source.AllowUsers {
-		allowUsers[user] = struct{}{}
-	}
 
 	client, err := resource.CreateGithubClient(&request.Source)
 	if err != nil {
@@ -62,17 +58,17 @@ func main() {
 		os.Exit(1)
 		return
 	}
-	for _, team := range request.Source.AllowTeams {
-		users, err := client.GetTeamMembers(team.Organization, team.Slug)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get team %s/%s: %s\n", team.Organization, team.Slug, err.Error())
-			os.Exit(1)
-			return
-		}
-		for _, user := range users {
-			name := user.GetLogin()
-			allowUsers[name] = struct{}{}
-		}
+	allowUsers, err := getGithubUsers(client, request.Source.AllowUsers, request.Source.AllowTeams)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+		return
+	}
+	ignoreUsers, err := getGithubUsers(client, request.Source.IgnoreUsers, request.Source.IgnoreTeams)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+		return
 	}
 
 	response := Response{}
@@ -112,6 +108,9 @@ func main() {
 			if _, ok := allowUsers[commentUser]; !ok {
 				continue
 			}
+			if _, ok := ignoreUsers[commentUser]; ok {
+				continue
+			}
 			if triggerPhrase.MatchString(comment.GetBody()) {
 				// infoEncoder.Encode(comment)
 				version := resource.Version{
@@ -142,4 +141,22 @@ func main() {
 	}
 
 	json.NewEncoder(os.Stdout).Encode(response)
+}
+
+func getGithubUsers(client *resource.GithubClient, users []string, teams []resource.Team) (map[string]struct{}, error) {
+	userMap := make(map[string]struct{}, len(users))
+	for _, user := range users {
+		userMap[user] = struct{}{}
+	}
+	for _, team := range teams {
+		users, err := client.GetTeamMembers(team.Organization, team.Slug)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get team %s/%s: %s", team.Organization, team.Slug, err.Error())
+		}
+		for _, user := range users {
+			name := user.GetLogin()
+			userMap[name] = struct{}{}
+		}
+	}
+	return userMap, nil
 }

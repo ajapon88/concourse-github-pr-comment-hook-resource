@@ -13,10 +13,14 @@ type Source struct {
 	Repository    string   `json:"repository"`
 	TriggerPhrase string   `json:"trigger_phrase"`
 	AllowUsers    []string `json:"allow_users"`
-	AllowTeams    []struct {
-		Organization string `json:"organization"`
-		Slug         string `json:"slug"`
-	} `json:"allow_teams"`
+	AllowTeams    []Team   `json:"allow_teams"`
+	IgnoreUsers   []string `json:"ignore_users"`
+	IgnoreTeams   []Team   `json:"ignore_teams"`
+}
+
+type Team struct {
+	Organization string `json:"organization"`
+	Slug         string `json:"slug"`
 }
 
 type Version struct {
