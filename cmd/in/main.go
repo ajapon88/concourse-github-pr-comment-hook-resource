@@ -147,15 +147,17 @@ func gitDownload(dest string, request *Request, pull *github.PullRequest) error 
 		Username: "x-oauth-basic",
 		Password: request.Source.AccessToken,
 	}
+
 	repository, err := git.PlainOpen(dest)
 	if err != nil {
 		gitURL := pull.GetHead().GetRepo().GetSVNURL()
-		fmt.Fprintf(os.Stderr, "git clone %s\n", gitURL)
+		fmt.Fprintf(os.Stderr, "> git clone %s\n", gitURL)
 		repository, err = git.PlainClone(dest, false, &git.CloneOptions{
 			URL:          gitURL,
 			Auth:         &auth,
 			SingleBranch: true,
 			Depth:        request.Params.Depth,
+			Progress:     os.Stderr,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to clone repository: %s", err.Error())
@@ -168,14 +170,15 @@ func gitDownload(dest string, request *Request, pull *github.PullRequest) error 
 	}
 
 	// fetch
-	fmt.Fprintf(os.Stderr, "git fetch\n")
+	fmt.Fprintf(os.Stderr, "> git fetch\n")
 	err = repository.Fetch(&git.FetchOptions{
 		RefSpecs: []config.RefSpec{
 			config.RefSpec("+refs/pull/*:refs/remotes/origin/pr/*"),
 		},
-		Depth: request.Params.Depth,
-		Auth:  &auth,
-		Tags:  git.AllTags,
+		Depth:    request.Params.Depth,
+		Auth:     &auth,
+		Tags:     git.AllTags,
+		Progress: os.Stderr,
 	})
 	if err != nil && err.Error() != "already up-to-date" {
 		return fmt.Errorf("failed to fetch: %s", err.Error())
@@ -184,7 +187,7 @@ func gitDownload(dest string, request *Request, pull *github.PullRequest) error 
 	headBranch := fmt.Sprintf("refs/heads/%s", pull.GetHead().GetRef())
 	refName := plumbing.ReferenceName(headBranch)
 	ref := plumbing.NewHashReference(refName, plumbing.NewHash(request.Version.Commit))
-	fmt.Fprintf(os.Stderr, "git change branch %s\n", ref)
+	fmt.Fprintf(os.Stderr, "> git change branch %s(%s)\n", ref.Name(), ref.Hash())
 	err = repository.Storer.SetReference(ref)
 	if err != nil {
 		return fmt.Errorf("failed to create branch: %s", err.Error())
